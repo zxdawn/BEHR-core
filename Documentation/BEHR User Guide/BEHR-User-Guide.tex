@@ -80,6 +80,39 @@ would indicate this sort of minor change.
 	
 \section{Variables}
 
+\subsection{Bit array flags}
+	The variables \texttt{BEHRProfileScalingFlags} and \texttt{BEHRProfileScalingWarnings} are bit arrays, so each bit has a specific meaning if it is on or off.
+	
+	\begin{table}
+	\begin{tabular}{cl}
+	Bit position & Meaning when on \\ \hline
+	1		&	Profile has NOT been scaled \\
+	2		&	Profile not scaled because initial VCDs within 10\% \\
+	3		&	Profile not scaled because chemical boundary layer could not be IDed \\
+	4		&	Profile not scaled because the profile shape was too uniform \\
+	5		& 	Unused \\
+	6		&	Unused \\
+	7		&	Unused \\
+	8		&	Unused
+	\end{tabular}
+	\caption{Meanings of the bits in the \texttt{BEHRProfileScalingFlags} variable.}
+	\end{table}
+	
+	\begin{table}
+	\begin{tabular}{cl}
+	Bit position & Meaning when on \\ \hline
+	1		&	Summary bit (on if any warning thrown) \\
+	2		&	Boundary layer only partially distinct \\
+	3		&	Boundary layer height $>2$ km above the surface \\
+	4		&	Convergence aborted when BEHR boundary layer column $< 0$ \\
+	5		&	Unused \\
+	6		&	Unused \\
+	7		&	Unused \\
+	8		&	Convergence not achieved in 100 iterations
+	\end{tabular}
+	\caption{Meanings of the bits in the \texttt{BEHRProfileScalingWarnings} variable.}
+	\end{table}
+
 \section{Considerations when working with BEHR files}
 	\subsection{Pixel filtering}
 	For users wishing to identify high quality \ce{NO2} column information to ground, there are six key criteria to look for:
