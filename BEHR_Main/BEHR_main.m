@@ -96,7 +96,7 @@ if onCluster
 else
     %This is the directory where the final .mat file will be saved. This will
     %need to be changed to match your machine and the files' location.
-    behr_mat_dir = '/Users/Josh/Documents/MATLAB/BEHR/Workspaces/Wind speed/SE US BEHR Monthly - Sqrt convergence';
+    behr_mat_dir = '/Users/Josh/Documents/MATLAB/BEHR/Workspaces/Wind speed/W US BEHR Monthly - Sqrt Convergence';
     
     %This is the directory where the "OMI_SP_*.mat" files are saved. This will
     %need to be changed to match your machine and the files' location.
@@ -110,7 +110,7 @@ else
     %This is the directory where the NO2 profiles are stored. This will
     %need to be changed to match your machine and the files' location.
     %no2_profile_path = '/Volumes/share/GROUP/SAT/BEHR/Monthly_NO2_Profiles';
-    no2_profile_path = '/Volumes/share2/USERS/LaughnerJ/WRF/E_US_BEHR';
+    no2_profile_path = '/Volumes/share2/USERS/LaughnerJ/WRF/W_US_BEHR';
 end
 
 %Store paths to relevant files
@@ -133,7 +133,7 @@ restart = false;
 %****************************%
 
 % Which WRF profiles to use. Can be 'hourly', 'daily', 'monthly', or
-% 'hybrid'
+% 'hybrid'. For convergence, should really be set to 'monthly'.
 %****************************%
 if exist('prof_mode','var')
     allowed_modes = {'hourly','daily','monthly','hybrid'};
@@ -142,7 +142,7 @@ if exist('prof_mode','var')
     end
     wrf_avg_mode = prof_mode;
 else
-    wrf_avg_mode = 'hourly';
+    wrf_avg_mode = 'monthly';
     fprintf('BEHR_main: Used hard-coded wrf_avg_mode = %s\n',wrf_avg_mode);
 end
 %****************************%
@@ -385,6 +385,7 @@ parfor (j=1:length(datenums), n_workers)
                 Data(d).BEHRScatteringWeights = reshape(scattering_weights, [len_vecs, sz]);
                 Data(d).BEHRAvgKernels = reshape(avg_kernels, [len_vecs, sz]);
                 Data(d).BEHRNO2apriori = reshape(no2_prof_interp, [len_vecs, sz]);
+                Data(d).BEHRaprioriMode = apriori_bin_mode;
                 Data(d).BEHRNO2ScaledApriori = scaled_profiles;
                 Data(d).BEHRChemBLH = chemBLH;
                 Data(d).BEHRProfileScalingFlags = scaling_flags;
