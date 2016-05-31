@@ -96,7 +96,7 @@ if onCluster
 else
     %This is the directory where the final .mat file will be saved. This will
     %need to be changed to match your machine and the files' location.
-    behr_mat_dir = '/Users/Josh/Documents/MATLAB/BEHR/Workspaces/Wind speed/W US BEHR Monthly - Sqrt Convergence';
+    behr_mat_dir = '/Users/Josh/Documents/MATLAB/BEHR/Workspaces/Wind speed/W US BEHR Monthly - Convergence';
     
     %This is the directory where the "OMI_SP_*.mat" files are saved. This will
     %need to be changed to match your machine and the files' location.
@@ -360,7 +360,8 @@ parfor (j=1:length(datenums), n_workers)
                             % Scale the boundary layer part of the profile,
                             % recalculate the AMF and the vertical column.
                             pp = pressure > chemBLH(i);
-                            no2_slice(pp) = no2_slice(pp) * sqrt(V_BEHR_BL/V_WRF_BL);
+                            %no2_slice(pp) = no2_slice(pp) * sqrt(V_BEHR_BL/V_WRF_BL);
+                            no2_slice(pp) = no2_slice(pp) * V_BEHR_BL/V_WRF_BL;
                             [behr_amf_conv, ~, ~, ~, ~, scaled_profiles(:,i), ~, behr_ghost_conv, wrf_vcd_conv] = omiAmfAK2(pTerr(i), pCld(i), cldFrac(i), cldRadFrac(i), pressure, dAmfClr(:,i), dAmfCld(:,i), temperature(:,i), no2_slice, no2_slice, noGhost, ak);
                             behr_vcd_conv = behr_scd_init / behr_amf_conv;
                         end
