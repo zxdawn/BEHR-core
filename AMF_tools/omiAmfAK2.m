@@ -45,7 +45,7 @@
 %   Josh Laughner <joshlaugh5@gmail.com> 
 
 %function [amf, amfCld, amfClr, avgKernel, vcd, vcdAvgKernel] = omiAmfAK2(pTerr, pCld, cldFrac, cldRadFrac, pressure, dAmfClr, dAmfCld, temperature, no2Profile1, no2Profile2, noGhost, ak)
-function [amf, amfCld, amfClr, sc_weights, avgKernel, no2Profile3, swPlev, ghost, vcdGnd] = omiAmfAK2(pTerr, pCld, cldFrac, cldRadFrac, pressure, dAmfClr, dAmfCld, temperature, no2Profile1, no2Profile2, noGhost, ak)
+function [amf, amfCld, amfClr, sc_weights, avgKernel, no2Profile3, swPlev, ghost] = omiAmfAK2(pTerr, pCld, cldFrac, cldRadFrac, pressure, dAmfClr, dAmfCld, temperature, no2Profile1, no2Profile2, noGhost, ak)
 
 
 % Each profile is expected to be a column in the no2Profile matrix.  Check
@@ -86,13 +86,12 @@ amfCld=zeros(size(pTerr));
 % both of the pressures to interpolate to is already in the pressure
 % vector). We add two to the first dimension of these matrices to make room
 % for the two interpolated pressures.
-pad_vec = zeros(size(size(no2Profile1)));
-pad_vec(1) = 2;
-
-swPlev=zeros(size(no2Profile1)+pad_vec);
-swClr=zeros(size(no2Profile1)+pad_vec);
-swCld=zeros(size(no2Profile1)+pad_vec);
-no2Profile3=zeros(size(no2Profile1)+pad_vec);
+padvec = zeros(1,ndims(no2Profile1));
+padvec(1) = 2;
+swPlev=zeros(size(no2Profile1)+padvec);
+swClr=zeros(size(no2Profile1)+padvec);
+swCld=zeros(size(no2Profile1)+padvec);
+no2Profile3=zeros(size(no2Profile1)+padvec);
 nP = size(swPlev,1);
 %..........................................................................
 
@@ -159,8 +158,7 @@ amf = cldRadFrac .* amfCld + (1-cldRadFrac).*amfClr;
 % multiplied? It is the ratio of total to visible column, so
 % V_total = V_vis * ghost, and V = S/A, so if V_total = S/A_total, and
 % A_total = A_vis/ghost, then V_total = S/(A_vis / ghost) = V_vis * ghost.
-vis_vcd = (vcdCld .* cldFrac + vcdGnd .* (1.-cldFrac));
-ghost = vcdGnd ./ vis_vcd;
+ghost = vcdGnd ./ (vcdCld .* cldFrac + vcdGnd .* (1.-cldFrac));
 
 if numel(noGhost) == 1;
     if noGhost > 0;
@@ -168,7 +166,7 @@ if numel(noGhost) == 1;
     end
 end
 
-amf = max(amf,1.e-6);   % clamp at min value (2008-06-20)
+amf(~isnan(amf)) = max(amf(~isnan(amf)),1.e-6);   % clamp at min value (2008-06-20), but don't replace NaNs with the min value (2016-05-12)
 
 if numel(ak) == 1;
    if ak > 0;
