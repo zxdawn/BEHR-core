@@ -34,16 +34,23 @@ if isempty(numThreads)
     numThreads = 1;
 end
 
+% Cleanup object will safely exit if there's a problem
+if onCluster
+    cleanupobj = onCleanup(@() mycleanup());
+end
+
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% DEPENDENCIES %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%
 
 %Add the 'Utils' folder and all subfolders to MATLAB's search path. Within
 %the Git repository for BEHR, this is the /Utils folder.
-addpath(genpath('~/Documents/MATLAB/BEHR/Utils'))
+mpath = fileparts(mfilename('fullpath'));
+addpath(genpath(fullfile(mpath,'..','Utils')));
 
 
-% Add the paths needed to run on the cluster
+% Add the paths needed to run on the cluster. Modify these manually if
+% needed.
 if onCluster;
     addpath(genpath('~/MATLAB/Classes'));
     addpath(genpath('~/MATLAB/Utils'));
@@ -100,12 +107,12 @@ else
     
     %This is the directory where the "OMI_SP_*.mat" files are saved. This will
     %need to be changed to match your machine and the files' location.
-    sp_mat_dir = '/Volumes/share-sat/SAT/BEHR/SP_Files_2014';
+    sp_mat_dir = BEHR_paths('sp_mat_dir');
     
     %Add the path to the AMF_tools folder which contains rNmcTmp2.m,
     %omiAmfAK2.m, integPr2.m and others.  In the Git repository for BEHR, this
     %is the 'AMF_tools' folder.
-    amf_tools_path = '/Users/Josh/Documents/MATLAB/BEHR/AMF_tools';
+    amf_tools_path = BEHR_paths('amf_tools_dir');
     
     %This is the directory where the NO2 profiles are stored. This will
     %need to be changed to match your machine and the files' location.
@@ -172,25 +179,7 @@ elseif ~exist(no2_profile_path,'dir')
     E.filenotfound(no2_profile_path)
 end
 
-%Find the last file completed and set the start date to the next day.  This
-%will allow the process to be stopped and started with minimum
-%intervention.
-file_prefix = [satellite,'_',retrieval,'_']; l = length(file_prefix);
-last_file=dir(fullfile(behr_mat_dir,sprintf('%s*.mat',file_prefix)));
 
-if ~isempty(last_file) && restart
-    last_datenum = datenum(last_file(end).name(l+1:l+8),'yyyymmdd')+1;
-else
-    last_datenum = 0;
-end
-
-if last_datenum >= datenum(date_start) && last_datenum <= datenum(date_end)
-    datenums = last_datenum:datenum(date_end);
-else
-    datenums = datenum(date_start):datenum(date_end);
-end
-
-tic
 % Create a parallel pool if one doesn't exist and we are on a cluster
 if onCluster    
     if isempty(gcp('nocreate'))
@@ -201,6 +190,7 @@ else
     n_workers = 0;
 end
 
+datenums = datenum(date_start):datenum(date_end);
 
 %parfor (j=1:length(datenums), n_workers)
 for j=1:length(datenums)
@@ -229,8 +219,8 @@ for j=1:length(datenums)
                 if DEBUG_LEVEL>0; fprintf('  Swath %u of %s \n',d,datestr(datenums(j))); end
                 c=numel(Data(d).Longitude);
                 
-                Data(d).MODISAlbedo(isnan(Data(d).MODISAlbedo))=0; %JLL 17 Mar 2014: replace NaNs with fill values
-                Data(d).GLOBETerpres(isnan(Data(d).GLOBETerpres))=1013.0000;
+                %Data(d).MODISAlbedo(isnan(Data(d).MODISAlbedo)==1)=0; %JLL 17 Mar 2014: replace NaNs with fill values
+                %Data(d).GLOBETerpres(isnan(Data(d).GLOBETerpres)==1)=1013.0000;
                 
                 %JLL 17 Mar 2014: Load some of the variables from 'Data' to
                 %make referencing them less cumbersome. Also convert some
@@ -254,7 +244,8 @@ for j=1:length(datenums)
                 albedo = Data(d).MODISAlbedo;
                 
                 surfPres(surfPres>=1013)=1013; %JLL 17 Mar 2014: Clamp surface pressure to sea level or less.
-                cldPres = Data(d).CloudPressure;
+                cldPres = Data(d).CloudPressure(:);
+                cldPres(cldPres>=1013)=1013; % JLL 13 May 2016: Also clamp cloud pressure. Whenever this is >1013, the AMF becomes a NaN because the lookup table cannot handle "surface" pressure >1013
                 
                 if DEBUG_LEVEL > 1; disp('   Calculating clear and cloudy AMFs'); end
                 dAmfClr = rDamf2(fileDamf, pressure, sza, vza, phi, albedo, surfPres); %JLL 18 Mar 2014: Interpolate the values in dAmf to the albedo and other conditions input
@@ -379,7 +370,7 @@ for j=1:length(datenums)
                 % omiAmfAK2, must be a holdover from previous code.
                 no2Profile2 = no2Profile1;
                 
-                [amf_final, ~, ~, scattering_weights, avg_kernels, no2_prof_interp, sw_plevels, ghost_fraction] = omiAmfAK2(pTerr, pCld, cldFrac, cldRadFrac, pressure, dAmfClr, dAmfCld, temperature, no2Profile1, no2Profile2, noGhost, ak);
+                [amf_final, amfVis_final, ~, ~, ~, scattering_weights, avg_kernels, no2_prof_interp, sw_plevels] = omiAmfAK2(pTerr, pCld, cldFrac, cldRadFrac, pressure, dAmfClr, dAmfCld, temperature, no2Profile1);
                 behr_vcd_final = S_behr ./ amf_final;
                 
                 sz = size(Data(d).Longitude);
@@ -387,6 +378,7 @@ for j=1:length(datenums)
                 % Need this to properly reshape the scattering weights, AKs, pressure levels, and profiles
                 
                 Data(d).BEHRAMFTrop = reshape(amf_final,sz); %JLL 18 Mar 2014: Save the resulting AMF of the pixel
+                Data(d).BEHRAMFTropVisOnly = reshape(amfVis_final,sz);
                 Data(d).BEHRColumnAmountNO2Trop = reshape(behr_vcd_final, sz);
                 Data(d).BEHRGhostFraction = reshape(ghost_fraction,sz);
                 Data(d).BEHRScatteringWeights = reshape(scattering_weights, [len_vecs, sz]);
@@ -406,7 +398,12 @@ for j=1:length(datenums)
             if isfield(Data,'BEHRAMFTrop')==0 || isempty(Data(z).BEHRAMFTrop)==1;
                 continue
             else
-                
+                Data(z).BEHRColumnAmountNO2Trop=Data(z).ColumnAmountNO2Trop.*Data(z).AMFTrop./Data(z).BEHRAMFTrop;
+                Data(z).BEHRColumnAmountNO2TropVisOnly=Data(z).ColumnAmountNO2Trop.*Data(z).AMFTrop./Data(z).BEHRAMFTropVisOnly;
+                % make sure fill values in the original column or AMF are
+                % fill values in BEHR.
+                Data(z).BEHRColumnAmountNO2Trop(Data(z).ColumnAmountNO2Trop < -1e29 | Data(z).AMFTrop < -30000) = nan; 
+                Data(z).BEHRColumnAmountNO2TropVisOnly(Data(z).ColumnAmountNO2Trop < -1e29 | Data(z).AMFTrop < -30000) = nan; 
                 if DEBUG_LEVEL > 0; fprintf('   BEHR [NO2] stored for swath %u\n',z); end
             end
         end
@@ -444,14 +441,11 @@ for j=1:length(datenums)
         % Prepare the OMI data structure which will receive the gridded
         % data - this will be passed to the gridding functions to keep the
         % field names in the right order.
-        %         OMI=struct('Date','','Longitude', [], 'Latitude', [], 'Time', [], 'ViewingZenithAngle', [], 'SolarZenithAngle', [], 'ViewingAzimuthAngle', [], 'SolarAzimuthAngle', [],...
-        %             'RelativeAzimuthAngle', [], 'AMFStrat', [], 'AMFTrop',[], 'CloudFraction', [], 'CloudRadianceFraction', [], 'CloudPressure', [], 'ColumnAmountNO2', [],...
-        %             'SlantColumnAmountNO2', [], 'ColumnAmountNO2Trop', [], 'ColumnAmountNO2TropStd',[],'ColumnAmountNO2Strat',[],'TerrainHeight', [], 'TerrainPressure', [], 'TerrainReflectivity', [], 'vcdQualityFlags',{{}},...
-        %             'MODISCloud', [], 'MODISAlbedo', [], 'GLOBETerpres', [], 'XTrackQualityFlags', {{}}, 'Row', [], 'Swath', [], 'TropopausePressure', [], 'BEHRColumnAmountNO2Trop',[],...
-        %             'BEHRAMFTrop', [], 'Count', [], 'Area', [], 'Areaweight', [], 'MapData', struct);
-        OMI = struct('BEHRColumnAmountNO2Trop', [], 'ViewingZenithAngle', [], 'SolarZenithAngle', [], 'AMFTrop', [], 'CloudFraction', [], 'CloudRadianceFraction', [],...
-            'CloudPressure', [], 'ColumnAmountNO2Trop', [], 'RelativeAzimuthAngle', [], 'MODISAlbedo', [], 'MODISCloud', [], 'GLOBETerpres', [], 'BEHRAMFTrop', [],...% 'OriginalBEHRAMF', [], 'OriginalBEHRColumn', [],...
-            'Latitude', [], 'Longitude', [], 'MapData', struct, 'Count', [], 'Area', [], 'Areaweight', [], 'vcdQualityFlags', {{}}, 'XTrackQualityFlags', {{}});
+        OMI=struct('Date','','Longitude', [], 'Latitude', [], 'Time', [], 'ViewingZenithAngle', [], 'SolarZenithAngle', [], 'ViewingAzimuthAngle', [], 'SolarAzimuthAngle', [],...
+            'RelativeAzimuthAngle', [], 'AMFStrat', [], 'AMFTrop',[], 'CloudFraction', [], 'CloudRadianceFraction', [], 'CloudPressure', [], 'ColumnAmountNO2', [],...
+            'SlantColumnAmountNO2', [], 'ColumnAmountNO2Trop', [], 'ColumnAmountNO2TropStd',[],'ColumnAmountNO2Strat',[],'TerrainHeight', [], 'TerrainPressure', [], 'TerrainReflectivity', [], 'vcdQualityFlags',{{}},...
+            'MODISCloud', [], 'MODISAlbedo', [], 'GLOBETerpres', [], 'XTrackQualityFlags', {{}}, 'Row', [], 'Swath', [], 'TropopausePressure', [], 'BEHRColumnAmountNO2Trop',[],...
+            'BEHRAMFTrop', [], 'BEHRColumnAmountNO2TropVisOnly', [], 'BEHRAMFTropVisOnly', [], 'Count', [], 'Area', [], 'Areaweight', [], 'MapData', struct);
         % Matlab treats structures as matrices, so we can duplicate our
         % structure to have the required number of entries just like a
         % matrix.
@@ -472,8 +466,8 @@ for j=1:length(datenums)
         
         % Clean up any unused elements in OMI
         OMI(hh+1:end) = [];
-        
-        savename = sprintf('%s_%s_%s.mat',satellite,retrieval,datestr(datenums(j),'yyyymmdd'));
+
+        savename = sprintf('%s_%s_%s_%s.mat',satellite,retrieval,BEHR_version,datestr(datenums(j),'yyyymmdd'));
         if DEBUG_LEVEL > 0; disp(['   Saving data as',fullfile(behr_mat_dir,savename)]); end
         saveData(fullfile(behr_mat_dir,savename),Data,OMI)
     end
@@ -482,4 +476,16 @@ end
 
 function saveData(filename,Data,OMI)
 save(filename,'OMI','Data')
+end
+
+function mycleanup()
+err=lasterror;
+if ~isempty(err.message)
+    fprintf('MATLAB exiting due to problem: %s\n', err.message);
+    if ~isempty(gcp('nocreate'))
+        delete(gcp)
+    end 
+
+    exit(1)
+end
 end
