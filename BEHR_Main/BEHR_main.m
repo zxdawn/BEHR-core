@@ -103,7 +103,7 @@ if onCluster
 else
     %This is the directory where the final .mat file will be saved. This will
     %need to be changed to match your machine and the files' location.
-    behr_mat_dir = '/Users/Josh/Documents/MATLAB/BEHR/Workspaces/Convergence Method/SE US BEHR Monthly - Scale by SCD - lw 13.5 - 18-22 UTC - post merge test';
+    behr_mat_dir = '/Users/Josh/Documents/MATLAB/BEHR/Workspaces/Convergence Method/SE US BEHR Monthly - Pick Profile';
     
     %This is the directory where the "OMI_SP_*.mat" files are saved. This will
     %need to be changed to match your machine and the files' location.
@@ -117,7 +117,7 @@ else
     %This is the directory where the NO2 profiles are stored. This will
     %need to be changed to match your machine and the files' location.
     %no2_profile_path = '/Volumes/share/GROUP/SAT/BEHR/Monthly_NO2_Profiles';
-    no2_profile_path = '/Volumes/share2/USERS/LaughnerJ/WRF/E_US_BEHR_13lonwt_1822UTC';
+    no2_profile_path = '/Volumes/share2/USERS/LaughnerJ/WRF/E_US_BEHR_13lonwt_1822UTC/monthly';
 end
 
 %Store paths to relevant files
@@ -264,109 +264,16 @@ for j=1:length(datenums)
                 cldRadFrac = Data(d).CloudRadianceFraction;
                 
                 if DEBUG_LEVEL > 1; disp('   Reading NO2 profiles'); end
-                [no2_bins, apriori_bin_mode] = rProfile_WRF(datenums(j), wrf_avg_mode, loncorns, latcorns, time, pTerr, pressure, no2_profile_path); %JLL 18 Mar 2014: Bins the NO2 profiles to the OMI pixels; the profiles are averaged over the pixel
-                no2Profile = no2_bins;
+                % We need the tropospheric slant column to compare against
+                % to find the best profile
+                S_behr = Data(d).ColumnAmountNO2Trop .* Data(d).AMFTrop;
+                no2Profile = rProfile_pickWRF(datenums(j), lon, lat, S_behr, dAmfClr, dAmfCld, pTerr, pCld, cldRadFrac, pressure, no2_profile_path); %JLL 18 Mar 2014: Bins the NO2 profiles to the OMI pixels; the profiles are averaged over the pixel
                 
                 if DEBUG_LEVEL > 1; disp('   Calculating BEHR AMF'); end
-                % We need the tropospheric slant column to compare against
-                S_behr = Data(d).ColumnAmountNO2Trop .* Data(d).AMFTrop;
-                
-                % Now we need to compute the SCD derived from the WRF
-                % profile.
-                S_wrf_clr = apply_aks_to_prof(no2Profile, pressure, dAmfClr, pressure, pTerr);
-                S_wrf_cld = apply_aks_to_prof(no2Profile, pressure, dAmfCld, pressure, pCld);
-                % The total WRF slant column will be the sum of clear and
-                % above cloud columns, weighted by the cloud radiance
-                % fraction, since the influence on the detector should
-                % relate the to amount of light at the top of the
-                % atmosphere due to clear and cloudy scenes.
-                S_wrf = (1 - cldRadFrac) .* S_wrf_clr + cldRadFrac .* S_wrf_cld;
-                
-                % Calculate the initial AMFs based on the direct WRF
-                % profiles
-                [amf_init, ~, ~, ~, ~, ~, ~, no2_prof_interp_init] = omiAmfAK2(pTerr, pCld, cldFrac, cldRadFrac, pressure, dAmfClr, dAmfCld, temperature, no2Profile); 
-                Data(d).BEHRAMFTropInitial = amf_init;
-                Data(d).BEHRColumnAmountNO2TropInitial = S_behr ./ amf_init;
-                % Now, for each pixel, we're going to compare the WRF SCD
-                % and the BEHR SCD and scale the WRF profile's boundary
-                % layer so that the SCDs match.
-                chemBLH = zeros(size(amf_init));
-                scaling_flags = uint8(zeros(size(amf_init)));
-                scaling_warnings = uint8(zeros(size(amf_init)));
-                for i=1:numel(amf_init)
-                    % Compute the boundary layer height, assuming that the
-                    % boundary layer can be defined as where the [NO2]
-                    % drops to 1/e^2 of its original value. This function
-                    % returns a NaN if it cannot find anything satisfying
-                    % that criteria.
-                    no2_slice = no2Profile(:,i);
-                    if all(isnan(no2_slice))
-                        scaling_flags(i) = bitset(scaling_flags(i),6);
-                        continue
-                    end
-                    chemBLH(i) = find_bdy_layer_height(no2_slice, pressure, 'exp2', 'altispres', true);
-                    if isnan(chemBLH(i))
-                        scaling_flags(i) = bitset(scaling_flags(i), 3);
-                        continue
-                    elseif chemBLH(i) - -log(pTerr/1013)*7.4 > 2
-                        scaling_warnings(i) = bitset(scaling_warnings(i), 3);
-                    end
-                    
-                    % Will use this as a test to determine how good an
-                    % assumption it is that most of the NO2 is in the
-                    % boundary layer. Criteria were derived by examining a
-                    % number of WRF profiles and seeing what ranges of
-                    % values for this quantity produced questionable BL
-                    % heights.
-                    prof_bottom = find(~isnan(no2_slice),1,'first');
-                    bl_factor = abs(no2_slice(prof_bottom) - nanmedian(no2_slice(:)))/no2_slice(prof_bottom);
-                    if bl_factor < 0.6
-                        scaling_flags(i) = bitset(scaling_flags(i), 4);
-                        continue
-                    elseif bl_factor >= 0.6 && bl_factor <= 0.75
-                        scaling_warnings(i) = bitset(scaling_warnings(i), 2);
-                    end
-                    
-                    %perdiff = (S_wrf(i) - S_behr(i)) ./ S_behr(i);
-                    %if abs(perdiff) < 0.1
-                    %        scaling_flags(i) = bitset(scaling_flags(i), 2);
-                    %else
-                        % See notes from 12 Jan 2016.
-                        % Like the previously attempted convergence method,
-                        % we will scale the boundary layer by the ratio of
-                        % the observed to modeled boundary layers, assuming
-                        % that the free troposphere in the model is
-                        % reasonably accurate
-                        
-                        % The catch is that, because we attempted to
-                        % calculate the visible slant column, we need to
-                        % compute the clear and cloudy free trop SCD and
-                        % add them together. However, while the lower
-                        % integration limit for clear sky is obvious (BL
-                        % pressure) the cloudy one's lower limit will be
-                        % either the cloud pressure or BL pressure, which
-                        % ever is smaller (higher altitude). Generally, we
-                        % expect the BL height should not exceed the cloud
-                        % top, so flag if this is true.
-                        S_ft_clr_i = apply_aks_to_prof(no2Profile(:,i), pressure, dAmfClr(:,i), pressure, chemBLH(i));
-                        S_ft_cld_i = apply_aks_to_prof(no2Profile(:,i), pressure, dAmfCld(:,i), pressure, min([chemBLH(i), pCld(i)]));
-                        if chemBLH(i) < pCld(i)
-                            scaling_flags(i) = bitset(scaling_flags(i),5);
-                        end
-                        S_ft_i = (1-cldRadFrac(i)) .* S_ft_clr_i + cldRadFrac(i) .* S_ft_cld_i;
-                        
-                        S_wrf_bl_i = S_wrf(i) - S_ft_i;
-                        S_behr_bl_i = S_behr(i) - S_ft_i;
-                        
-                        pp = pressure > chemBLH(i);
-                        no2_slice(pp) = no2_slice(pp) .* (S_behr_bl_i ./ S_wrf_bl_i);
-                        
-                        no2Profile(:,i) = no2_slice;
-                    %end
-                end
                 
                 [amf_final, amfVis_final, ~, ~, ~, scattering_weights, avg_kernels, no2_prof_interp, sw_plevels] = omiAmfAK2(pTerr, pCld, cldFrac, cldRadFrac, pressure, dAmfClr, dAmfCld, temperature, no2Profile);
                 behr_vcd_final = S_behr ./ amf_final;
+                behr_vcdVis_final = S_behr ./ amfVis_final;
                 
                 sz = size(Data(d).Longitude);
                 len_vecs = size(scattering_weights,1);  % JLL 26 May 2015 - find out how many pressure levels there are. Will often be 30, but might change.
@@ -375,14 +282,10 @@ for j=1:length(datenums)
                 Data(d).BEHRAMFTrop = reshape(amf_final,sz); %JLL 18 Mar 2014: Save the resulting AMF of the pixel
                 Data(d).BEHRAMFTropVisOnly = reshape(amfVis_final,sz);
                 Data(d).BEHRColumnAmountNO2Trop = reshape(behr_vcd_final, sz);
+                Data(d).BEHRColumnAmountNO2TropVisOnly = reshape(behr_vcdVis_final, sz);
                 Data(d).BEHRScatteringWeights = reshape(scattering_weights, [len_vecs, sz]);
                 Data(d).BEHRAvgKernels = reshape(avg_kernels, [len_vecs, sz]);
-                Data(d).BEHRNO2apriori = reshape(no2_prof_interp_init, [len_vecs, sz]);
-                Data(d).BEHRNO2ScaledApriori = reshape(no2_prof_interp, [len_vecs, sz]);
-                Data(d).BEHRaprioriMode = apriori_bin_mode;
-                Data(d).BEHRChemBLH = chemBLH;
-                Data(d).BEHRProfileScalingFlags = scaling_flags;
-                Data(d).BEHRProfileScalingWarnings = scaling_warnings;
+                Data(d).BEHRNO2apriori = reshape(no2_prof_interp, [len_vecs, sz]);
                 Data(d).BEHRPressureLevels = reshape(sw_plevels, [len_vecs, sz]);
             end
         end
