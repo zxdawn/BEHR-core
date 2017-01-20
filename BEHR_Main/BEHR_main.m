@@ -103,7 +103,7 @@ if onCluster
 else
     %This is the directory where the final .mat file will be saved. This will
     %need to be changed to match your machine and the files' location.
-    behr_mat_dir = '/Users/Josh/Documents/MATLAB/BEHR/Workspaces/Convergence Method/SE US BEHR Monthly - Scale by SCD - lw 13.5 - 18-22 UTC - post merge test';
+    behr_mat_dir = '/Users/Josh/Documents/MATLAB/BEHR/Workspaces/Convergence Method/SE US BEHR Monthly - Scale by SCD - add 1e15 to model SCD';
     
     %This is the directory where the "OMI_SP_*.mat" files are saved. This will
     %need to be changed to match your machine and the files' location.
@@ -280,7 +280,11 @@ for j=1:length(datenums)
                 % fraction, since the influence on the detector should
                 % relate the to amount of light at the top of the
                 % atmosphere due to clear and cloudy scenes.
-                S_wrf = (1 - cldRadFrac) .* S_wrf_clr + cldRadFrac .* S_wrf_cld;
+                %
+                % The addition of 1e15 reflects the difference in median
+                % and mean SCDs between the model and the satellite for the
+                % SE US domain
+                S_wrf = (1 - cldRadFrac) .* S_wrf_clr + cldRadFrac .* S_wrf_cld + 1e15;
                 
                 % Calculate the initial AMFs based on the direct WRF
                 % profiles
@@ -378,6 +382,7 @@ for j=1:length(datenums)
                 Data(d).BEHRScatteringWeights = reshape(scattering_weights, [len_vecs, sz]);
                 Data(d).BEHRAvgKernels = reshape(avg_kernels, [len_vecs, sz]);
                 Data(d).BEHRNO2apriori = reshape(no2_prof_interp_init, [len_vecs, sz]);
+                Data(d).BEHRModelSCDInit = reshape(S_wrf, sz);
                 Data(d).BEHRNO2ScaledApriori = reshape(no2_prof_interp, [len_vecs, sz]);
                 Data(d).BEHRaprioriMode = apriori_bin_mode;
                 Data(d).BEHRChemBLH = chemBLH;
@@ -439,7 +444,7 @@ for j=1:length(datenums)
             'RelativeAzimuthAngle', [], 'AMFStrat', [], 'AMFTrop',[], 'CloudFraction', [], 'CloudRadianceFraction', [], 'CloudPressure', [], 'ColumnAmountNO2', [],...
             'SlantColumnAmountNO2', [], 'ColumnAmountNO2Trop', [], 'ColumnAmountNO2TropStd',[],'ColumnAmountNO2Strat',[],'TerrainHeight', [], 'TerrainPressure', [], 'TerrainReflectivity', [], 'vcdQualityFlags',{{}},...
             'MODISCloud', [], 'MODISAlbedo', [], 'GLOBETerpres', [], 'XTrackQualityFlags', {{}}, 'Row', [], 'Swath', [], 'TropopausePressure', [], 'BEHRColumnAmountNO2Trop',[],...
-            'BEHRAMFTrop', [], 'BEHRColumnAmountNO2TropVisOnly', [], 'BEHRAMFTropVisOnly', [], 'Count', [], 'Area', [], 'Areaweight', [], 'MapData', struct);
+            'BEHRAMFTrop', [], 'BEHRColumnAmountNO2TropVisOnly', [], 'BEHRAMFTropVisOnly', [], 'BEHRModelSCDInit', [], 'BEHRSlantColumnAmountNO2Trop', [], 'Count', [], 'Area', [], 'Areaweight', [], 'MapData', struct);
         % Matlab treats structures as matrices, so we can duplicate our
         % structure to have the required number of entries just like a
         % matrix.
