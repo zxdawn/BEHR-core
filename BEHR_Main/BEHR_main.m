@@ -103,7 +103,7 @@ if onCluster
 else
     %This is the directory where the final .mat file will be saved. This will
     %need to be changed to match your machine and the files' location.
-    behr_mat_dir = '/Users/Josh/Documents/MATLAB/BEHR/Workspaces/Convergence Method/SE US BEHR Monthly - Pick Profile';
+    behr_mat_dir = '/Users/Josh/Documents/MATLAB/BEHR/Workspaces/Convergence Method/SE US BEHR Monthly - Pick Profile - subtract 1e15 from sat SCD';
     
     %This is the directory where the "OMI_SP_*.mat" files are saved. This will
     %need to be changed to match your machine and the files' location.
@@ -267,7 +267,7 @@ for j=1:length(datenums)
                 % We need the tropospheric slant column to compare against
                 % to find the best profile
                 S_behr = Data(d).ColumnAmountNO2Trop .* Data(d).AMFTrop;
-                no2Profile = rProfile_pickWRF(datenums(j), lon, lat, S_behr, dAmfClr, dAmfCld, pTerr, pCld, cldRadFrac, pressure, no2_profile_path); %JLL 18 Mar 2014: Bins the NO2 profiles to the OMI pixels; the profiles are averaged over the pixel
+                no2Profile = rProfile_pickWRF(datenums(j), lon, lat, S_behr - 1e15, dAmfClr, dAmfCld, pTerr, pCld, cldRadFrac, pressure, no2_profile_path); %JLL 18 Mar 2014: Bins the NO2 profiles to the OMI pixels; the profiles are averaged over the pixel
                 
                 if DEBUG_LEVEL > 1; disp('   Calculating BEHR AMF'); end
                 
