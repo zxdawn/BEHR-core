@@ -1,4 +1,4 @@
-function [ converged_profs, true_prof, start_prof, amfs_converged, amfs_true, amfs_start ] = test_apriori_convergence( true_prof, true_pres, start_prof, start_pres, sza, vza, raa, alb, surfpres, cldradfrac, cldpres, lon, lat, date_in )
+function [ converged_profs, true_prof, start_prof, amfs_converged, amfs_true, amfs_start ] = test_apriori_convergence( true_prof, true_pres, true_lon, true_lat, init_wrf_path, sza, vza, raa, alb, surfpres, cldradfrac, cldpres, lon, lat, date_in )
 %TEST_APRIORI_CONVERGENCE Ideal case of scaling a monthly profile to match daily
 %   CONVERGED_PROFS = TEST_APRIORI_CONVERGENCE( TRUE_PROF, TRUE_PRES,
 %   START_PROF, START_PRES, SZA, VZA, RAA, ALB, SURFP, CLDRADFRAC, CLDPRES)
@@ -78,6 +78,7 @@ alpha = min(alpha_i,10);
 dAmfClr = dAmfClr .* alpha;
 dAmfCld = dAmfCld .* alpha;
 
+% This should be handled by integPr2 in apply_aks_to_prof
 dAmfClr(bplevs > surfpres) = 1e-30;
 dAmfCld(bplevs > cldpres) = 1e-30;
 
@@ -92,31 +93,9 @@ S_wrf_clr_true = apply_aks_to_prof(true_prof, bplevs, dAmfClr, bplevs, surfpres_
 S_wrf_cld_true = apply_aks_to_prof(true_prof, bplevs, dAmfCld, bplevs, cldpres_mat);
 S_wrf_true = (1 - cldradfrac) .* S_wrf_clr_true + cldradfrac .* S_wrf_cld_true;
 
-S_wrf_clr_start = apply_aks_to_prof(start_prof, bplevs, dAmfClr, bplevs, surfpres_mat);
-S_wrf_cld_start = apply_aks_to_prof(start_prof, bplevs, dAmfCld, bplevs, cldpres_mat);
-S_wrf_start = (1 - cldradfrac) .* S_wrf_clr_start + cldradfrac .* S_wrf_cld_start;
 
-for i=1:prod(sz(1:2));
-    chemBLH = find_bdy_layer_height(start_prof(:,i), bplevs, 'exp2', 'altispres', true);
-    
-    % In the proper algorithm, we have to use the a priori profile to
-    % calculate the free trop contribution to the SCD. Since the starting
-    % profile is playing the role of the a priori, we use that here. 
-    %
-    % The bottom pressure for the cloudy part of the pixel must be
-    % whichever is higher - the boundary layer or the cloud pressure.
-    S_ft_clr_i = apply_aks_to_prof(start_prof(:,i), bplevs, dAmfClr(:,i), bplevs, chemBLH);
-    S_ft_cld_i = apply_aks_to_prof(start_prof(:,i), bplevs, dAmfCld(:,i), bplevs, min([chemBLH, cldpres]));
-    S_ft_i = (1-cldradfrac) .* S_ft_clr_i + cldradfrac .* S_ft_cld_i;
-    
-    if S_ft_i < 0.8 * S_wrf_true(i) 
-        S_bl_true_i = S_wrf_true(i) - S_ft_i;
-        S_bl_start_i = S_wrf_start(i) - S_ft_i;
-        
-        pp = bplevs > chemBLH;
-        converged_profs(pp,i) = start_prof(pp,i) .* (S_bl_true_i ./ S_bl_start_i);
-    end
-end
+converged_profs = rProfile_pickWRF(date_in, true_lon, true_lat, S_wrf_true, dAmfClr, dAmfCld, surfpres_mat, cldpres_mat, bplevs, init_wrf_path);
+
 
 amfs_true = omiAmfAK2(surfpres_mat, cldpres_mat, cldradfrac_mat, cldradfrac_mat, bplevs, dAmfClr_all_mat, dAmfCld_all_mat, temperature_mat, true_prof);
 amfs_start = omiAmfAK2(surfpres_mat, cldpres_mat, cldradfrac_mat, cldradfrac_mat, bplevs, dAmfClr_all_mat, dAmfCld_all_mat, temperature_mat, start_prof);
