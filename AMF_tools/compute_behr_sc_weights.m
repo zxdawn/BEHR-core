@@ -4,6 +4,27 @@ function [ dAmfClr, dAmfCld, temperature ] = compute_behr_sc_weights( lon, lat, 
 
 E = JLLErrors;
 
+sz = size(lon);
+if ~ismatrix(lon)
+    E.badinput('LON must be a matrix or vector')
+elseif ~isequal(sz, size(lat))
+    E.badinput('LAT must be a matrix or vector the same size as LON');
+elseif ~isequal(sz, size(temperature_month))
+    E.badinput('TEMPERATURE_MONTH must be a matrix or vector the same size as LON');
+elseif ~isequal(sz, size(sza))
+    E.badinput('SZA must be a matrix or vector the same size as LON');
+elseif ~isequal(sz, size(vza))
+    E.badinput('VZA must be a matrix or vector the same size as LON');
+elseif ~isequal(sz, size(raa))
+    E.badinput('RAA must be a matrix or vector the same size as LON');
+elseif ~isequal(sz, size(albedo))
+    E.badinput('ALBEDO must be a matrix or vector the same size as LON');
+elseif ~isequal(sz, size(surfPres))
+    E.badinput('SURFPRES must be a matrix or vector the same size as LON');
+elseif ~isequal(sz, size(cldPres))
+    E.badinput('CLDPRES must be a matrix or vector the same size as LON');
+end
+
 % Find the lookup tables for temperature and pressure
 fileTmp = fullfile(behr_repo_dir,'AMF_tools','nmcTmpYr.txt');
 fileDamf = fullfile(behr_repo_dir, 'AMF_tools', 'damf.txt');
@@ -34,7 +55,7 @@ cldPres(cldPres > 1013) = 1013;
 
 % Get the scattering weights
 dAmfClr = rDamf2(fileDamf, pressure, sza, vza, raa, albedo, surfPres); 
-cloudalbedo=0.8; % Assume that any cloud has an albedo of 0.8
+cloudalbedo=0.8*ones(size(lon)); % Assume that any cloud has an albedo of 0.8
 dAmfCld = rDamf2(fileDamf, pressure, sza, vza, raa, cloudalbedo, cldPres);
 
 end

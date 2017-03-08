@@ -23,15 +23,21 @@ file_pattern = 'WRF_BEHR_%s_%s.nc';
 daily_file = fullfile(wrf_path_daily, sprintf(file_pattern, 'hourly', datestr(date_in, 'yyyy-mm-dd')));
 monthly_file = fullfile(wrf_path_monthly, sprintf(file_pattern, 'monthly', datestr(eomdate(date_in), 'yyyy-mm-dd')));
 
-no2_daily = ncread(daily_file, 'no2')/1e6;
-pres_daily = ncread(daily_file, 'pres');
+no2_daily = double(ncread(daily_file, 'no2'))/1e6;
+pres_daily = double(ncread(daily_file, 'pres'));
+lon_daily = double(ncread(daily_file,'XLONG'));
+lat_daily = double(ncread(daily_file,'XLAT'));
+
 no2_daily = no2_daily(:,:,:,1);
 pres_daily = pres_daily(:,:,:,1);
-no2_monthly = ncread(monthly_file, 'no2')/1e6;
-pres_monthly = ncread(monthly_file, 'pres');
+lon_daily = lon_daily(:,:,1);
+lat_daily = lat_daily(:,:,1);
+
+no2_monthly = double(ncread(monthly_file, 'no2'))/1e6;
+pres_monthly = double(ncread(monthly_file, 'pres'));
 
 [profiles.converged, profiles.daily, profiles.monthly, amfs.converged, amfs.daily, amfs.monthly] =... 
-    test_apriori_convergence(no2_daily, pres_daily, no2_monthly, pres_monthly, sza, vza, raa, alb, surfp, cldradfrac, cldp, lon, lat, date_in);
+    test_apriori_convergence(no2_daily, pres_daily, lon_daily, lat_daily, no2_monthly, pres_monthly, wrf_path_monthly, sza, vza, raa, alb, surfp, cldradfrac, cldp, date_in);
 
 amf_settings.sza = sza;
 amf_settings.vza = vza;

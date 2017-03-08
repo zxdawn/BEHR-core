@@ -1,4 +1,4 @@
-function [ converged_profs, true_prof, start_prof, amfs_converged, amfs_true, amfs_start ] = test_apriori_convergence( true_prof, true_pres, true_lon, true_lat, init_wrf_path, sza, vza, raa, alb, surfpres, cldradfrac, cldpres, lon, lat, date_in )
+function [ converged_profs, true_prof, start_prof, amfs_converged, amfs_true, amfs_start ] = test_apriori_convergence( true_prof, true_pres, true_lon, true_lat, start_prof, start_pres, init_wrf_path, sza, vza, raa, alb, surfpres, cldradfrac, cldpres, date_in )
 %TEST_APRIORI_CONVERGENCE Ideal case of scaling a monthly profile to match daily
 %   CONVERGED_PROFS = TEST_APRIORI_CONVERGENCE( TRUE_PROF, TRUE_PRES,
 %   START_PROF, START_PRES, SZA, VZA, RAA, ALB, SURFP, CLDRADFRAC, CLDPRES)
@@ -20,11 +20,22 @@ sz = size(true_prof);
 if ~isequal(size(true_pres), sz)
     E.badinput('TRUE_PRES must be the same size as TRUE_PROF (a 3d array)')
 end
-if ~isequal(size(start_prof), sz)
-    E.badinput('START_PROF must be the same size as TRUE_PROF (a 3d array)')
+if ~isequal(size(true_lon), sz(1:2))
+    E.badinput('TRUE_LON must be the same size as the first two dimensions of TRUE_PROF')
 end
-if ~isequal(size(start_pres), sz)
-    E.badinput('START_PRES must be the same size as TRUE_PROF (a 3d array)')
+if ~isequal(size(true_lat), sz(1:2))
+    E.badinput('TRUE_LAT must be the same size as the first two dimensions of TRUE_PROF')
+end
+
+if ~ischar(init_wrf_path)
+    E.badinput('INIT_WRF_PATH must be a string')
+elseif ~exist(init_wrf_path, 'dir')
+    E.badinput('INIT_WRF_PATH must be a directory')
+else
+    F = dir(fullfile(init_wrf_path, 'WRF_BEHR_*.nc'));
+    if isempty(F)
+        E.badinput('No WRF_BEHR files found in %s', init_wrf_path);
+    end
 end
 
 if ~isscalar(sza)
@@ -60,15 +71,19 @@ bplevs = bplevs(:);
 % Also reorders the dimensions so that vertical is first
 true_prof = interp_no2_to_pres(true_prof, true_pres);
 start_prof = interp_no2_to_pres(start_prof, start_pres);
-converged_profs = start_prof;
 
 % Calculate the AMF scattering weights for the inputs
 mon = month(date_in);
-[dAmfClr, dAmfCld, temperature] = compute_behr_sc_weights(lon, lat, mon, sza, vza, raa, alb, surfpres, cldpres);
+mon_mat = repmat(mon, size(true_prof,2), size(true_prof,3));
+sza_mat = repmat(sza, size(true_prof,2), size(true_prof,3));
+vza_mat = repmat(vza, size(true_prof,2), size(true_prof,3));
+raa_mat = repmat(raa, size(true_prof,2), size(true_prof,3));
+alb_mat = repmat(alb, size(true_prof,2), size(true_prof,3));
+surfpres_mat = repmat(surfpres, size(true_prof,2),size(true_prof,3));
+cldpres_mat = repmat(cldpres, size(true_prof,2),size(true_prof,3));
+cldradfrac_mat = repmat(cldradfrac, size(true_prof,2),size(true_prof,3));
 
-dAmfClr_all_mat = repmat(dAmfClr(:),1,size(true_prof,2),size(true_prof,3));
-dAmfCld_all_mat = repmat(dAmfCld(:),1,size(true_prof,2),size(true_prof,3));
-temperature_mat = repmat(temperature(:),1,size(true_prof,2),size(true_prof,3));
+[dAmfClr, dAmfCld, temperature] = compute_behr_sc_weights(true_lon, true_lat, mon_mat, sza_mat, vza_mat, raa_mat, alb_mat, surfpres_mat, cldpres_mat);
 
 alpha = 1 - 0.003 * (temperature - 220);   % temperature correction factor vector
 alpha_i=max(alpha,0.1);
@@ -79,14 +94,9 @@ dAmfClr = dAmfClr .* alpha;
 dAmfCld = dAmfCld .* alpha;
 
 % This should be handled by integPr2 in apply_aks_to_prof
-dAmfClr(bplevs > surfpres) = 1e-30;
-dAmfCld(bplevs > cldpres) = 1e-30;
+% dAmfClr(bplevs > surfpres) = 1e-30;
+% dAmfCld(bplevs > cldpres) = 1e-30;
 
-dAmfClr = repmat(dAmfClr(:),1,size(true_prof,2),size(true_prof,3));
-dAmfCld = repmat(dAmfCld(:),1,size(true_prof,2),size(true_prof,3));
-surfpres_mat = repmat(surfpres, size(true_prof,2),size(true_prof,3));
-cldpres_mat = repmat(cldpres, size(true_prof,2),size(true_prof,3));
-cldradfrac_mat = repmat(cldradfrac, size(true_prof,2),size(true_prof,3));
 
 % Calculate the SCDs for the true and starting profiles
 S_wrf_clr_true = apply_aks_to_prof(true_prof, bplevs, dAmfClr, bplevs, surfpres_mat);
@@ -94,12 +104,12 @@ S_wrf_cld_true = apply_aks_to_prof(true_prof, bplevs, dAmfCld, bplevs, cldpres_m
 S_wrf_true = (1 - cldradfrac) .* S_wrf_clr_true + cldradfrac .* S_wrf_cld_true;
 
 
-converged_profs = rProfile_pickWRF(date_in, true_lon, true_lat, S_wrf_true, dAmfClr, dAmfCld, surfpres_mat, cldpres_mat, bplevs, init_wrf_path);
+converged_profs = rProfile_pickWRF(date_in, true_lon, true_lat, S_wrf_true, dAmfClr, dAmfCld, surfpres_mat, cldpres_mat, cldradfrac_mat, bplevs, init_wrf_path);
 
 
-amfs_true = omiAmfAK2(surfpres_mat, cldpres_mat, cldradfrac_mat, cldradfrac_mat, bplevs, dAmfClr_all_mat, dAmfCld_all_mat, temperature_mat, true_prof);
-amfs_start = omiAmfAK2(surfpres_mat, cldpres_mat, cldradfrac_mat, cldradfrac_mat, bplevs, dAmfClr_all_mat, dAmfCld_all_mat, temperature_mat, start_prof);
-amfs_converged = omiAmfAK2(surfpres_mat, cldpres_mat, cldradfrac_mat, cldradfrac_mat, bplevs, dAmfClr_all_mat, dAmfCld_all_mat, temperature_mat, converged_profs);
+amfs_true = omiAmfAK2(surfpres_mat, cldpres_mat, cldradfrac_mat, cldradfrac_mat, bplevs, dAmfClr, dAmfCld, temperature, true_prof);
+amfs_start = omiAmfAK2(surfpres_mat, cldpres_mat, cldradfrac_mat, cldradfrac_mat, bplevs, dAmfClr, dAmfCld, temperature, start_prof);
+amfs_converged = omiAmfAK2(surfpres_mat, cldpres_mat, cldradfrac_mat, cldradfrac_mat, bplevs, dAmfClr, dAmfCld, temperature, converged_profs);
 
 
 end
