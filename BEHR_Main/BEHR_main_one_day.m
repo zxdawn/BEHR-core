@@ -57,7 +57,7 @@ function [ Data, OMI ] = BEHR_main_one_day( Data, varargin )
 p = inputParser;
 % Parameters relevant to the normal retrieval
 p.addParameter('no2_profile_path', '');
-p.addParameter('profile_mode', 'monthly');
+p.addParameter('profile_mode', 'daily');
 p.addParameter('use_psm_gridding', false);
 p.addParameter('err_wrf_missing_attr', true);
 
@@ -135,7 +135,7 @@ for d=1:length(Data)
     
     
     if DEBUG_LEVEL > 1; fprintf('   Reading NO2 and temperature profiles\n'); end
-    [no2Profile, temperature, wrf_profile_file, TropoPres, tropopause_interp_flag, wrf_pres_mode, wrf_temp_mode] = rProfile_WRF(this_date, prof_mode, region, loncorns, latcorns, time, surfPres, pressure, no2_profile_path, 'err_missing_att', err_wrf_missing_attr); %JLL 18 Mar 2014: Bins the NO2 profiles to the OMI pixels; the profiles are averaged over the pixel
+    [no2Profile, lnoProfile, lno2Profile, temperature, wrf_profile_file, TropoPres, tropopause_interp_flag, wrf_pres_mode, wrf_temp_mode] = rProfile_WRF(this_date, prof_mode, region, loncorns, latcorns, time, surfPres, pressure, no2_profile_path, 'err_missing_att', err_wrf_missing_attr); %JLL 18 Mar 2014: Bins the NO2 profiles to the OMI pixels; the profiles are averaged over the pixel
     if ~lookup_profile
         no2Profile_check = no2Profile;
         no2Profile = remove_nonstandard_pressures(Data(d).BEHRNO2apriori, Data(d).BEHRPressureLevels, pressure);
@@ -165,9 +165,10 @@ for d=1:length(Data)
     
     if DEBUG_LEVEL > 1; disp('   Calculating BEHR AMF'); end
 
-    [amf, amfVis, ~, ~, scattering_weights_clear, scattering_weights_cloudy, avg_kernels, no2_prof_interp, sw_plevels] = omiAmfAK2(surfPres, TropoPres, cldPres, cldFrac, cldRadFrac, pressure, dAmfClr, dAmfCld, temperature, no2Profile); %JLl 18 Mar 2014: The meat and potatoes of BEHR, where the TOMRAD AMF is adjusted to use the GLOBE pressure and MODIS cloud fraction
+    [amf, amfVis, amf_lnox, ~, ~, scattering_weights_clear, scattering_weights_cloudy, avg_kernels, no2_prof_interp, sw_plevels] = omiAmfAK2(surfPres, TropoPres, cldPres, cldFrac, cldRadFrac, pressure, dAmfClr, dAmfCld, temperature, no2Profile, lnoProfile, lno2Profile); %JLl 18 Mar 2014: The meat and potatoes of BEHR, where the TOMRAD AMF is adjusted to use the GLOBE pressure and MODIS cloud fraction
     amf(bad_profs)=NaN;
     amfVis(bad_profs)=NaN;
+    amf_lnox(bad_profs)=NaN;
     scattering_weights_clear(:,bad_profs)=NaN;
     scattering_weights_cloudy(:,bad_profs)=NaN;
     avg_kernels(:,bad_profs)=NaN;
@@ -180,6 +181,7 @@ for d=1:length(Data)
     
     Data(d).BEHRAMFTrop = reshape(amf,sz); %JLL 18 Mar 2014: Save the resulting AMF of the pixel
     Data(d).BEHRAMFTropVisOnly = reshape(amfVis,sz);
+    Data(d).BEHRAMFLNOx = reshape(amf_lnox,sz);
     Data(d).BEHRScatteringWeightsClear = reshape(scattering_weights_clear, [len_vecs, sz]);
     Data(d).BEHRScatteringWeightsCloudy = reshape(scattering_weights_cloudy, [len_vecs, sz]);
     Data(d).BEHRAvgKernels = reshape(avg_kernels, [len_vecs, sz]);
@@ -209,10 +211,12 @@ for z=1:b;
     end
     Data(z).BEHRColumnAmountNO2Trop=Data(z).ColumnAmountNO2Trop.*Data(z).AmfTrop./Data(z).BEHRAMFTrop;
     Data(z).BEHRColumnAmountNO2TropVisOnly=Data(z).ColumnAmountNO2Trop.*Data(z).AmfTrop./Data(z).BEHRAMFTropVisOnly;
+    Data(z).BEHRColumnAmountLNOxTrop=Data(z).ColumnAmountNO2Trop.*Data(z).AmfTrop./Data(z).BEHRAMFLNOx;
     % make sure fill values in the original column or AMF are
     % fill values in BEHR.
     Data(z).BEHRColumnAmountNO2Trop(Data(z).ColumnAmountNO2Trop < -1e29 | Data(z).AmfTrop < -30000) = nan;
     Data(z).BEHRColumnAmountNO2TropVisOnly(Data(z).ColumnAmountNO2Trop < -1e29 | Data(z).AmfTrop < -30000) = nan;
+    Data(z).BEHRColumnAmountLNOxTrop(Data(z).ColumnAmountNO2Trop < -1e29 | Data(z).AmfTrop < -30000) = nan;
     if DEBUG_LEVEL > 0; fprintf('   BEHR [NO2] stored for swath %u\n',z); end
     
     Data(z).GitHead_Core_Main = core_githead;
