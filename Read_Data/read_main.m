@@ -162,7 +162,7 @@ switch lower(region)
     case 'us'
         lonmin = -125;    
         lonmax = -65;
-        latmin = 25;    
+        latmin = 10;    
         latmax = 50;
         earliest_omi_starttime = 1500;
         latest_omi_starttime = Inf;
@@ -187,8 +187,8 @@ end
 %overriding dates are passed into the function.
 %****************************%
 if isempty(date_start) || isempty(date_end)
-    date_start='2013/08/01';
-    date_end='2013/08/06';
+    date_start='2011/08/31';
+    date_end='2011/08/31';
 end
 %****************************%
 
@@ -391,7 +391,7 @@ parfor(j=1:length(datenums), n_workers)
     % intervention if you choose to add more variables since they're not
     % being copied directly from existing files.
     behr_variables = {'Date', 'Grid', 'LatBdy', 'LonBdy', 'Row', 'Swath', 'RelativeAzimuthAngle',...
-        'MODISCloud',  'MODISAlbedo', 'MODISAlbedoQuality','MODISAlbedoFillFlag', 'GLOBETerpres',...
+        'MODISCloud',  'MODISAlbedo', 'MODISAlbedoQuality','MODISAlbedoFillFlag', 'GLOBETerrainHeight',...
         'IsZoomModeSwath', 'AlbedoOceanFlag','OMPIXCORFile', 'MODISCloudFiles', 'MODISAlbedoFile',...
         'GitHead_Core_Read', 'GitHead_BEHRUtils_Read', 'GitHead_GenUtils_Read', 'OMNO2File', 'BEHRRegion'};
     
