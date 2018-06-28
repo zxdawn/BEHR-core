@@ -197,10 +197,12 @@ for d=1:length(Data)
     % threshold.) Therefore in that case we need to keep the NO2 and
     % temperature profiles over all bins.
     keep_all_bins = ~lookup_profile;
-    [no2Profile, lnoProfile, lno2Profile, temperature, wrf_profile_file, surfPres, surfPres_WRF, tropoPres, tropopause_interp_flag, wrf_pres_mode, wrf_temp_mode] = ...
+    [no2Profile, lnoProfile, lno2Profile, WRFCloudFraction, temperature, wrf_profile_file, surfPres, surfPres_WRF, tropoPres, tropopause_interp_flag, wrf_pres_mode, wrf_temp_mode] = ...
         rProfile_WRF(prof_date, prof_mode, region, prof_loncorns, prof_latcorns, time, globe_terheight, pressure, no2_profile_path,...
         'err_missing_att', err_wrf_missing_attr, 'clip_at_int_limits', ~keep_all_bins); %JLL 18 Mar 2014: Bins the NO2 profiles to the OMI pixels; the profiles are averaged over the pixel
     
+    Data(d).WRFCloudFraction = WRFCloudFraction
+
     surfPres(surfPres > 1013) = 1013;
     cldPres = Data(d).CloudPressure;
     cldPres = min(cldPres, surfPres); % Clamp cldPres to be <= surface pressure, should not have below surface clouds.
