@@ -200,8 +200,7 @@ for d=1:length(Data)
     [no2Profile, lnoProfile, lno2Profile, WRFCloudFraction, temperature, wrf_profile_file, surfPres, surfPres_WRF, tropoPres, tropopause_interp_flag, wrf_pres_mode, wrf_temp_mode] = ...
         rProfile_WRF(prof_date, prof_mode, region, prof_loncorns, prof_latcorns, time, globe_terheight, pressure, no2_profile_path,...
         'err_missing_att', err_wrf_missing_attr, 'clip_at_int_limits', ~keep_all_bins); %JLL 18 Mar 2014: Bins the NO2 profiles to the OMI pixels; the profiles are averaged over the pixel
-    
-    Data(d).WRFCloudFraction = WRFCloudFraction
+
 
     surfPres(surfPres > 1013) = 1013;
     cldPres = Data(d).CloudPressure;
@@ -283,6 +282,7 @@ for d=1:length(Data)
     Data(d).BEHRWRFFile = wrf_profile_file;
     Data(d).BEHRWRFPressureMode = wrf_pres_mode;
     Data(d).BEHRWRFTemperatureMode = wrf_temp_mode;
+    Data(d).WRFCloudFraction = WRFCloudFraction;
     Data(d).BEHRProfileMode = prof_mode;
     Data(d).BEHRPressureLevels = reshape(sw_plevels, [len_vecs, sz]);
     % temporary fields, will be removed after the warning flag is set
