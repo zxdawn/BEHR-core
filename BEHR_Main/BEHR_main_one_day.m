@@ -156,7 +156,8 @@ for d=1:length(Data)
     albedo = Data(d).MODISAlbedo;
     cldFrac = Data(d).CloudFraction;
     cldRadFrac = Data(d).CloudRadianceFraction;
-    
+    time_2D = repmat(time,1,size(cldRadFrac,2));
+
     pressure = behr_pres_levels();
     
     if DEBUG_LEVEL > 1; fprintf('   Reading NO2 and temperature profiles\n'); end
@@ -268,6 +269,10 @@ for d=1:length(Data)
     avg_kernels(:,bad_profs)=NaN;
     sw_plevels(:,bad_profs)=NaN;
     no2_prof_interp(:,bad_profs)=NaN;
+
+    % Exclude large amf_lnox which means little VCD_LNOx when compared with VCD_NO2
+    % amf_lnox(amf_lnox>10)=NaN;
+    % amf_lnox_pickering(amf_lnox_pickering>10)=NaN;
     
     sz = size(Data(d).Longitude);
     len_vecs = size(scattering_weights_clear,1);  % JLL 26 May 2015 - find out how many pressure levels there are. Will often be 30, but might change.
@@ -285,6 +290,7 @@ for d=1:length(Data)
     Data(d).BEHRWRFPressureMode = wrf_pres_mode;
     Data(d).BEHRWRFTemperatureMode = wrf_temp_mode;
     Data(d).WRFCloudFraction = WRFCloudFraction;
+    Data(d).Time_2D = time_2D;
     Data(d).IC = IC;
     Data(d).CG = CG;
     Data(d).BEHRProfileMode = prof_mode;
