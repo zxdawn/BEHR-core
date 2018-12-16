@@ -76,8 +76,8 @@ E = JLLErrors;
 % You may change the default values here if you just want to be able to
 % click 'Run', but it's usually better to pass these as parameters.
 p = inputParser;
-p.addParameter('start', '2011-08-31');%2017-04-20
-p.addParameter('end', '2011-08-31');%2017-04-20
+p.addParameter('start', '2014-05-01');
+p.addParameter('end', '2014-08-31');
 p.addParameter('behr_mat_dir', '');
 p.addParameter('sp_mat_dir', '');
 p.addParameter('amf_tools_path', behr_paths.amf_tools_dir);

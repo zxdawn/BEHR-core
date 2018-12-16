@@ -161,8 +161,8 @@ end
 switch lower(region)
     case 'us'
         lonmin = -125;    
-        lonmax = -65;
-        latmin = 10;    
+        lonmax = -70;
+        latmin = 20;    
         latmax = 50;
         earliest_omi_starttime = 1500;
         latest_omi_starttime = Inf;
@@ -187,8 +187,8 @@ end
 %overriding dates are passed into the function.
 %****************************%
 if isempty(date_start) || isempty(date_end)
-    date_start='2011/08/31';
-    date_end='2011/08/31';
+    date_start='2014/05/01';
+    date_end='2014/08/31';
 end
 %****************************%
 

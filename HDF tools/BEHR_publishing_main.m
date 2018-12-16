@@ -83,13 +83,13 @@ E = JLLErrors;
 
 p = inputParser;
 p.addParameter('output_type', 'hdf');
-p.addParameter('pixel_type', 'native');
-p.addParameter('start', '2005-01-01');
-p.addParameter('end', datestr(today, 'yyyy-mm-dd'));
+p.addParameter('pixel_type', 'gridded');
+p.addParameter('start', '2014-05-01');
+p.addParameter('end', '2014-08-31');
 p.addParameter('reprocessed', false);
 p.addParameter('mat_dir', '');
 p.addParameter('region', 'us');
-p.addParameter('profile_mode', 'monthly');
+p.addParameter('profile_mode', 'daily');
 p.addParameter('save_dir', behr_paths.website_staging_dir);
 p.addParameter('organize', true);
 p.addParameter('overwrite', -1);

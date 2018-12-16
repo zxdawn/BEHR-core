@@ -198,7 +198,7 @@ for d=1:length(Data)
     % threshold.) Therefore in that case we need to keep the NO2 and
     % temperature profiles over all bins.
     keep_all_bins = ~lookup_profile;
-    [no2Profile, lnoProfile, lno2Profile, WRFCloudFraction, IC, CG, temperature, wrf_profile_file, surfPres, surfPres_WRF, tropoPres, tropopause_interp_flag, wrf_pres_mode, wrf_temp_mode] = ...
+    [no2Profile, lnoProfile, lno2Profile, WRFCloudFraction, temperature, wrf_profile_file, surfPres, surfPres_WRF, tropoPres, tropopause_interp_flag, wrf_pres_mode, wrf_temp_mode] = ...
         rProfile_WRF(prof_date, prof_mode, region, prof_loncorns, prof_latcorns, time, globe_terheight, pressure, no2_profile_path,...
         'err_missing_att', err_wrf_missing_attr, 'clip_at_int_limits', ~keep_all_bins); %JLL 18 Mar 2014: Bins the NO2 profiles to the OMI pixels; the profiles are averaged over the pixel
 
@@ -259,7 +259,7 @@ for d=1:length(Data)
     
     if DEBUG_LEVEL > 1; disp('   Calculating BEHR AMF'); end
 
-    [amf, amfVis, amf_lnox, amf_lnox_pickering, ~, ~, scattering_weights_clear, scattering_weights_cloudy, avg_kernels, no2_prof_interp, sw_plevels] = omiAmfAK2(surfPres, tropoPres, cldPres, cldFrac, cldRadFrac, pressure, dAmfClr, dAmfCld, temperature, no2Profile, lnoProfile, lno2Profile); %JLl 18 Mar 2014: The meat and potatoes of BEHR, where the TOMRAD AMF is adjusted to use the GLOBE pressure and MODIS cloud fraction
+    [amf, amfVis, amf_lnox, amf_lnox_pickering, ~, ~, scattering_weights_clear, scattering_weights_cloudy, avg_kernels, no2_prof_interp, lno_prof_interp, lno2_prof_interp, lno2_700, sw_plevels] = omiAmfAK2(surfPres, tropoPres, cldPres, cldFrac, cldRadFrac, pressure, dAmfClr, dAmfCld, temperature, no2Profile, lnoProfile, lno2Profile); %JLl 18 Mar 2014: The meat and potatoes of BEHR, where the TOMRAD AMF is adjusted to use the GLOBE pressure and MODIS cloud fraction
     amf(bad_profs)=NaN;
     amfVis(bad_profs)=NaN;
     amf_lnox(bad_profs)=NaN;
@@ -269,6 +269,9 @@ for d=1:length(Data)
     avg_kernels(:,bad_profs)=NaN;
     sw_plevels(:,bad_profs)=NaN;
     no2_prof_interp(:,bad_profs)=NaN;
+    lno_prof_interp(:,bad_profs)=NaN;
+    lno2_prof_interp(:,bad_profs)=NaN;
+    lno2_700(bad_profs)=NaN;
 
     % Exclude large amf_lnox which means little VCD_LNOx when compared with VCD_NO2
     % amf_lnox(amf_lnox>10)=NaN;
@@ -282,17 +285,20 @@ for d=1:length(Data)
     Data(d).BEHRAMFTropVisOnly = reshape(amfVis,sz);
     Data(d).BEHRAMFLNOx = reshape(amf_lnox,sz);
     Data(d).BEHRAMFLNOx_pickering = reshape(amf_lnox_pickering,sz);
+    Data(d).BEHRColumnAmountLNO2_700 = reshape(lno2_700,sz);
     Data(d).BEHRScatteringWeightsClear = reshape(scattering_weights_clear, [len_vecs, sz]);
     Data(d).BEHRScatteringWeightsCloudy = reshape(scattering_weights_cloudy, [len_vecs, sz]);
     Data(d).BEHRAvgKernels = reshape(avg_kernels, [len_vecs, sz]);
     Data(d).BEHRNO2apriori = reshape(no2_prof_interp, [len_vecs, sz]);
+    Data(d).BEHRLNOapriori = reshape(lno_prof_interp, [len_vecs, sz]);
+    Data(d).BEHRLNO2apriori = reshape(lno2_prof_interp, [len_vecs, sz]);
     Data(d).BEHRWRFFile = wrf_profile_file;
     Data(d).BEHRWRFPressureMode = wrf_pres_mode;
     Data(d).BEHRWRFTemperatureMode = wrf_temp_mode;
     Data(d).WRFCloudFraction = WRFCloudFraction;
     Data(d).Time_2D = time_2D;
-    Data(d).IC = IC;
-    Data(d).CG = CG;
+    % Data(d).IC = IC;
+    % Data(d).CG = CG;
     Data(d).BEHRProfileMode = prof_mode;
     Data(d).BEHRPressureLevels = reshape(sw_plevels, [len_vecs, sz]);
     % temporary fields, will be removed after the warning flag is set
@@ -323,8 +329,9 @@ for z=1:b
     % fill values in BEHR.
     Data(z).BEHRColumnAmountNO2Trop(Data(z).ColumnAmountNO2Trop < -1e29 | Data(z).AmfTrop < -30000) = nan;
     Data(z).BEHRColumnAmountNO2TropVisOnly(Data(z).ColumnAmountNO2Trop < -1e29 | Data(z).AmfTrop < -30000) = nan;
-    Data(z).BEHRColumnAmountLNOxTrop(Data(z).ColumnAmountNO2Trop < -1e29 | Data(z).AmfTrop < -30000) = nan;
-    Data(z).BEHRColumnAmountLNOxTrop_pickering(Data(z).ColumnAmountNO2Trop < -1e29 | Data(z).AmfTrop < -30000) = nan;
+    Data(z).BEHRColumnAmountLNOxTrop(Data(z).ColumnAmountNO2Trop < -1e29 | Data(z).ColumnAmountNO2Trop > 1e17 | Data(z).AmfTrop < -30000) = nan;
+    Data(z).BEHRColumnAmountLNOxTrop_pickering(Data(z).ColumnAmountNO2Trop < -1e29 | Data(z).ColumnAmountNO2Trop > 1e17 | Data(z).AmfTrop < -30000) = nan;
+    Data(z).BEHRColumnAmountLNO2_700(Data(z).ColumnAmountNO2Trop < -1e29 | Data(z).ColumnAmountNO2Trop > 1e17 | Data(z).AmfTrop < -30000) = nan;
     if DEBUG_LEVEL > 0; fprintf('   BEHR [NO2] stored for swath %u\n',z); end
     
     Data(z).GitHead_Core_Main = core_githead;
