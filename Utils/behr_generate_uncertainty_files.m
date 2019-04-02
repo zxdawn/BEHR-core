@@ -33,8 +33,8 @@ function behr_generate_uncertainty_files(varargin)
 %       overwrite.
 
 p = inputParser;
-p.addParameter('test_year', 2012);
-p.addParameter('test_months', 1:12);
+p.addParameter('test_year', 2014);
+p.addParameter('test_months', 5:8);
 p.addParameter('output_root', '');
 p.addParameter('region', 'us');
 p.addParameter('prof_mode', 'daily');
@@ -109,13 +109,15 @@ end
 % data from Fig. 3 and use it to calculate the error directly given the
 % cloud fraction and pressure.
 O2 = O2O2CloudUncert();
+
 param_percent_changes = struct('MODISAlbedo', {{17, -17}},...
     'GLOBETerrainHeight', {{@(Data) percent_change_in_range(Data, 'GLOBETerrainHeight', 1.5, [0 Inf]), @(Data) percent_change_in_range(Data, 'GLOBETerrainHeight', -1.5, [0 Inf])}},...
     'BEHRTropopausePressure', {{@(Data) Data.TropopausePressure}},...
     'CloudPressure', {{@(Data) Data.CloudPressure + O2.interpolant(Data.CloudFraction, Data.CloudPressure), @(Data) Data.CloudPressure - O2.interpolant(Data.CloudFraction, Data.CloudPressure)}},...
     'CloudRadianceFraction', {{@(Data) differential_crf(Data, 0.05), @(Data) differential_crf(Data, -0.05)}},...
-    'ProfileLoc', 0,...
-    'ProfileTime', 0);
+    'ColumnAmountNO2Strat', {{@(Data) Data.ColumnAmountNO2Strat+10^14, @(Data) Data.ColumnAmountNO2Strat-10^14}},...
+    'MultipleProfile', 0,...
+    'ProfileLoc', 0);
 
 % Vary each parameter by the given amount, as well as randomizing the
 % profile times and locations. Save the resulting files in subdirectories

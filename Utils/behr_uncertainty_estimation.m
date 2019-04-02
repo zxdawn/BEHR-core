@@ -53,8 +53,8 @@ DEBUG_LEVEL = pout.DEBUG_LEVEL;
 if ~isstruct(Data)
     E.badinput('DATA must be a structure')
 end
-if ~ischar(parameter) || (~isfield(Data, parameter) && ~any(strcmpi(parameter, {'profileloc', 'profiletime'})))
-    E.badinput('PARAMETER must be a field name in DATA or the special strings "profileloc" or "profiletime"')
+if ~ischar(parameter) || (~isfield(Data, parameter) && ~any(strcmpi(parameter, {'multipleprofile', 'profileloc', 'profiletime'})))
+    E.badinput('PARAMETER must be a field name in DATA or the special strings "multipleprofile", "profileloc" or "profiletime"')
 end
 if isnumeric(percent_change) 
     if ~isscalar(percent_change)
@@ -72,7 +72,7 @@ for a=1:numel(Delta)
     % Vary the specified parameter. Later we'll add an ability to vary the
     % NO2 profiles in a realistic way, but for now we'll stick to just
     % varying 2D parameters
-    if ~any(strcmpi(parameter, {'profileloc','profiletime'}))
+    if ~any(strcmpi(parameter, {'multipleprofile', 'profileloc','profiletime'}))
         Delta(a).(parameter) = percent_change(Delta(a));
     end
 end
@@ -84,6 +84,9 @@ if strcmpi(parameter, 'profileloc')
 elseif strcmpi(parameter, 'profiletime')
     [Delta, DeltaGrid] = BEHR_main_one_day(Delta, 'profile_mode', Delta(1).BEHRProfileMode, 'lookup_profile', true, 'lookup_sweights', false,...
         'randomize_profile_time', true, varargin{:});
+elseif strcmpi(parameter, 'multipleprofile')
+    [Delta, DeltaGrid] = BEHR_main_one_day(Delta, 'profile_mode', Delta(1).BEHRProfileMode, 'lookup_profile', true, 'lookup_sweights', false,...
+        'multiple_profile', true, varargin{:});
 else
     [Delta, DeltaGrid] = BEHR_main_one_day(Delta, 'profile_mode', Delta(1).BEHRProfileMode, 'lookup_profile', false, 'lookup_sweights', true, 'extra_gridding_fields', {parameter}, varargin{:});
 end
@@ -91,15 +94,53 @@ end
 
 % Calculate the percent differences in the NO2 columns and AMFs
 for a=1:numel(Delta)
-    Delta(a).PercentChangeNO2 = reldiff(Delta(a).BEHRColumnAmountNO2Trop, Data(a).BEHRColumnAmountNO2Trop)*100;
-    Delta(a).PercentChangeNO2Vis = reldiff(Delta(a).BEHRColumnAmountNO2TropVisOnly, Data(a).BEHRColumnAmountNO2TropVisOnly)*100;
-    Delta(a).PercentChangeAMF = reldiff(Delta(a).BEHRAMFTrop, Data(a).BEHRAMFTrop)*100;
-    Delta(a).PercentChangeAMFVis = reldiff(Delta(a).BEHRAMFTropVisOnly, Data(a).BEHRAMFTropVisOnly)*100;
-    
+    %%%%%%%%%%%%%%%native%%%%%%%%%%%%%%%
+    % NO2 %
+    Delta(a).PercentChangeNO2            = reldiff(Delta(a).BEHRColumnAmountNO2Trop, Data(a).BEHRColumnAmountNO2Trop)*100;
+    Delta(a).PercentChangeNO2Vis         = reldiff(Delta(a).BEHRColumnAmountNO2TropVisOnly, Data(a).BEHRColumnAmountNO2TropVisOnly)*100;
+    % LNO2 %
+    Delta(a).PercentChangeLNO2           = reldiff(Delta(a).BEHRColumnAmountLNO2Trop, Data(a).BEHRColumnAmountLNO2Trop)*100;
+    Delta(a).PercentChangeLNO2_pickering = reldiff(Delta(a).BEHRColumnAmountLNO2Trop_pickering, Data(a).BEHRColumnAmountLNO2Trop_pickering)*100;
+    Delta(a).PercentChangeLNO2Vis        = reldiff(Delta(a).BEHRColumnAmountLNO2TropVisOnly, Data(a).BEHRColumnAmountLNO2TropVisOnly)*100;
+    % LNOx %
+    Delta(a).PercentChangeLNOx           = reldiff(Delta(a).BEHRColumnAmountLNOxTrop, Data(a).BEHRColumnAmountLNOxTrop)*100;
+    Delta(a).PercentChangeLNOx_pickering = reldiff(Delta(a).BEHRColumnAmountLNOxTrop_pickering, Data(a).BEHRColumnAmountLNOxTrop_pickering)*100;
+    Delta(a).PercentChangeLNOxVis        = reldiff(Delta(a).BEHRColumnAmountLNOxTropVisOnly, Data(a).BEHRColumnAmountLNOxTropVisOnly)*100;
+    % AMF %
+    Delta(a).PercentChangeAMF               = reldiff(Delta(a).BEHRAMFTrop, Data(a).BEHRAMFTrop)*100;
+    Delta(a).PercentChangeAMFVis            = reldiff(Delta(a).BEHRAMFTropVisOnly, Data(a).BEHRAMFTropVisOnly)*100;
+    % AMF_LNO2 %
+    Delta(a).PercentChangeAMFLNO2           = reldiff(Delta(a).BEHRAMFTropLNO2, Data(a).BEHRAMFTropLNO2)*100;
+    Delta(a).PercentChangeAMFLNO2_pickering = reldiff(Delta(a).BEHRAMFTropLNO2_pickering, Data(a).BEHRAMFTropLNO2_pickering)*100;
+    Delta(a).PercentChangeAMFLNO2Vis        = reldiff(Delta(a).BEHRAMFTropLNO2VisOnly, Data(a).BEHRAMFTropLNO2VisOnly)*100;
+    % AMF_LNOx %
+    Delta(a).PercentChangeAMFLNOx           = reldiff(Delta(a).BEHRAMFTropLNOx, Data(a).BEHRAMFTropLNOx)*100;
+    Delta(a).PercentChangeAMFLNOx_pickering = reldiff(Delta(a).BEHRAMFTropLNOx_pickering, Data(a).BEHRAMFTropLNOx_pickering)*100;
+    Delta(a).PercentChangeAMFLNOxVis        = reldiff(Delta(a).BEHRAMFTropLNOxVisOnly, Data(a).BEHRAMFTropLNOxVisOnly)*100;
+
+    %%%%%%%%%%%%%%%gridded%%%%%%%%%%%%%%%    
+    % NO2 %
     DeltaGrid(a).PercentChangeNO2 = reldiff(DeltaGrid(a).BEHRColumnAmountNO2Trop, OMI(a).BEHRColumnAmountNO2Trop)*100;
     DeltaGrid(a).PercentChangeNO2Vis = reldiff(DeltaGrid(a).BEHRColumnAmountNO2TropVisOnly, OMI(a).BEHRColumnAmountNO2TropVisOnly)*100;
-    DeltaGrid(a).PercentChangeAMF = reldiff(DeltaGrid(a).BEHRAMFTrop, OMI(a).BEHRAMFTrop)*100;
+    % LNO2 %
+    DeltaGrid(a).PercentChangeLNO2           = reldiff(DeltaGrid(a).BEHRColumnAmountLNO2Trop, OMI(a).BEHRColumnAmountLNO2Trop)*100;
+    DeltaGrid(a).PercentChangeLNO2_pickering = reldiff(DeltaGrid(a).BEHRColumnAmountLNO2Trop_pickering, OMI(a).BEHRColumnAmountLNO2Trop_pickering)*100;
+    DeltaGrid(a).PercentChangeLNO2Vis        = reldiff(DeltaGrid(a).BEHRColumnAmountLNO2TropVisOnly, OMI(a).BEHRColumnAmountLNO2TropVisOnly)*100;
+    % LNOx % 
+    DeltaGrid(a).PercentChangeLNOx           = reldiff(DeltaGrid(a).BEHRColumnAmountLNOxTrop, OMI(a).BEHRColumnAmountLNOxTrop)*100;
+    DeltaGrid(a).PercentChangeLNOx_pickering = reldiff(DeltaGrid(a).BEHRColumnAmountLNOxTrop_pickering, OMI(a).BEHRColumnAmountLNOxTrop_pickering)*100;
+    DeltaGrid(a).PercentChangeLNOxVis        = reldiff(DeltaGrid(a).BEHRColumnAmountLNOxTropVisOnly, OMI(a).BEHRColumnAmountLNOxTropVisOnly)*100;
+    % AMF %
+    DeltaGrid(a).PercentChangeAMF = reldiff(DeltaGrid(a).BEHRAMFTrop, OMI(a).BEHRAMFTrop)*100; 
     DeltaGrid(a).PercentChangeAMFVis = reldiff(DeltaGrid(a).BEHRAMFTropVisOnly, OMI(a).BEHRAMFTropVisOnly)*100;
+    % AMF_LNO2 %
+    DeltaGrid(a).PercentChangeAMFLNO2           = reldiff(DeltaGrid(a).BEHRAMFTropLNO2, OMI(a).BEHRAMFTropLNO2)*100;
+    DeltaGrid(a).PercentChangeAMFLNO2_pickering = reldiff(DeltaGrid(a).BEHRAMFTropLNO2_pickering, OMI(a).BEHRAMFTropLNO2_pickering)*100;
+    DeltaGrid(a).PercentChangeAMFLNO2Vis        = reldiff(DeltaGrid(a).BEHRAMFTropLNO2VisOnly, OMI(a).BEHRAMFTropLNO2VisOnly)*100;
+    % AMF_LNOx %
+    DeltaGrid(a).PercentChangeAMFLNOx           = reldiff(DeltaGrid(a).BEHRAMFTropLNOx, OMI(a).BEHRAMFTropLNOx)*100;
+    DeltaGrid(a).PercentChangeAMFLNOx_pickering = reldiff(DeltaGrid(a).BEHRAMFTropLNOx_pickering, OMI(a).BEHRAMFTropLNOx_pickering)*100;
+    DeltaGrid(a).PercentChangeAMFLNOxVis        = reldiff(DeltaGrid(a).BEHRAMFTropLNOxVisOnly, OMI(a).BEHRAMFTropLNOxVisOnly)*100;
 end
 
 if remove_unchanged_fields
@@ -108,7 +149,18 @@ if remove_unchanged_fields
     % parameter, but remove all other data fields (attribute fields will be
     % kept, i.e. any non-numeric field)
     fields_to_keep = {parameter, 'BEHRColumnAmountNO2Trop', 'BEHRAMFTrop', 'BEHRColumnAmountNO2TropVisOnly', 'BEHRAMFTropVisOnly',...
-        'PercentChangeNO2', 'PercentChangeAMF', 'PercentChangeNO2Vis', 'PercentChangeAMFVis', 'BEHRQualityFlags'};
+        'BEHRColumnAmountLNO2Trop','BEHRColumnAmountLNO2Trop_pickering','BEHRColumnAmountLNO2TropVisOnly',...
+        'BEHRColumnAmountLNOxTrop','BEHRColumnAmountLNOxTrop_pickering','BEHRColumnAmountLNOxTropVisOnly',...
+        'BEHRAMFTropLNO2','BEHRAMFTropLNO2_pickering','BEHRAMFTropLNO2VisOnly',...
+        'BEHRAMFTropLNOx','BEHRAMFTropLNOx_pickering','BEHRAMFTropLNOxVisOnly',...
+        'PercentChangeNO2','PercentChangeAMF','PercentChangeNO2Vis','PercentChangeAMFVis','BEHRQualityFlags','Swath',...
+        'PercentChangeLNO2','PercentChangeLNO2_pickering', 'PercentChangeLNO2Vis',...
+        'PercentChangeLNOx','PercentChangeLNOx_pickering', 'PercentChangeLNOxVis',...
+        'PercentChangeAMFLNO2','PercentChangeAMFLNO2_pickering',...
+        'PercentChangeAMFLNO2Vis','PercentChangeAMFLNOx','PercentChangeAMFLNOx_pickering','PercentChangeAMFLNOxVis',...
+        'ColumnAmountNO2Strat'};
+
+
     Delta = cut_down_fields(Delta, fields_to_keep);
     DeltaGrid = cut_down_fields(DeltaGrid, [fields_to_keep, {'Areaweight'}]);
 end
