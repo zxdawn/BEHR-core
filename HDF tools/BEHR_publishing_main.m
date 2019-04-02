@@ -85,7 +85,7 @@ p = inputParser;
 p.addParameter('output_type', 'hdf');
 p.addParameter('pixel_type', 'gridded');
 p.addParameter('start', '2014-05-01');
-p.addParameter('end', '2014-08-31');
+p.addParameter('end', '2014-08-24');
 p.addParameter('reprocessed', false);
 p.addParameter('mat_dir', '');
 p.addParameter('region', 'us');
